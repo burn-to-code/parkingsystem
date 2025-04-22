@@ -86,4 +86,24 @@ public class TicketDAO {
         }
         return false;
     }
+
+    public boolean getNbTickets(String vehicleRegNumber) {
+        Connection con = null;
+        Boolean beDiscount =  false;
+        try {
+            con = dataBaseConfig.getConnection();
+            PreparedStatement ps = con.prepareStatement(DBConstants.GETNB_TICKET);
+            ps.setString(1,vehicleRegNumber);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next())  {
+                beDiscount = rs.getInt(1) > 0;
+            }
+
+        } catch (Exception ex){
+            logger.error("Error fetching of recuperation number's ticket",ex);
+        } finally {
+            dataBaseConfig.closeConnection(con);
+        }
+        return beDiscount;
+    }
 }
