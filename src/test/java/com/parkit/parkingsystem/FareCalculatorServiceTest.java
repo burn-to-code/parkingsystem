@@ -126,34 +126,44 @@ public class FareCalculatorServiceTest {
         assertEquals( (24 * Fare.CAR_RATE_PER_HOUR) , ticket.getPrice());
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {1, 10, 20, 29})
-    public void calculateFareCarWithLessThanThirtyMinutesParkingTime(int minutesParked){
-        Date inTime = new Date();
-        inTime.setTime( System.currentTimeMillis() - ((long) minutesParked * 60 * 1000) ); //different minutes but less 30 minutes parking time
-        Date outTime = new Date();
-        ParkingSpot parkingSpot = new ParkingSpot(1, ParkingType.CAR,false);
-
-        ticket.setInTime(inTime);
-        ticket.setOutTime(outTime);
-        ticket.setParkingSpot(parkingSpot);
-        fareCalculatorService.calculateFare(ticket);
-        assertEquals( 0 , ticket.getPrice());
+    static Stream<Arguments> calculateFareSource(){
+        return Stream.of(
+               Arguments.of(1 , ParkingType.CAR , 0),
+               Arguments.of(5 , ParkingType.CAR , 0),
+               Arguments.of(10 , ParkingType.CAR , 0),
+               Arguments.of(15 , ParkingType.CAR , 0),
+               Arguments.of(20 , ParkingType.CAR , 0),
+               Arguments.of(29 , ParkingType.CAR , 0),
+               Arguments.of(30 , ParkingType.CAR , 0.75),
+               Arguments.of(45 , ParkingType.CAR , 1.125),
+               Arguments.of(60 , ParkingType.CAR , 1.5),
+               Arguments.of(120 , ParkingType.CAR , 3),
+                Arguments.of(1 , ParkingType.BIKE , 0),
+                Arguments.of(5 , ParkingType.BIKE , 0),
+                Arguments.of(10 , ParkingType.BIKE , 0),
+                Arguments.of(15 , ParkingType.BIKE , 0),
+                Arguments.of(20 , ParkingType.BIKE , 0),
+                Arguments.of(29 , ParkingType.BIKE , 0),
+                Arguments.of(30 , ParkingType.BIKE , 0.5),
+                Arguments.of(45 , ParkingType.BIKE , 0.75),
+                Arguments.of(60 , ParkingType.BIKE , 1),
+                Arguments.of(120 , ParkingType.BIKE , 2)
+            );
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {1, 10, 20, 29})
-    public void calculateFareBikeWithLessThanThirtyMinutesParkingTime(int minutesParked){
+    @MethodSource("calculateFareSource")
+    public void calculateFareParkingTime(int minutesParked,  ParkingType parkingType,  double expectedPrice){
         Date inTime = new Date();
         inTime.setTime( System.currentTimeMillis() - ((long) minutesParked * 60 * 1000) ); //different minutes but less 30 minutes parking time
         Date outTime = new Date();
-        ParkingSpot parkingSpot = new ParkingSpot(1, ParkingType.BIKE,false);
+        ParkingSpot parkingSpot = new ParkingSpot(1, parkingType,false);
 
         ticket.setInTime(inTime);
         ticket.setOutTime(outTime);
         ticket.setParkingSpot(parkingSpot);
         fareCalculatorService.calculateFare(ticket);
-        assertEquals( 0 , ticket.getPrice());
+        assertEquals( expectedPrice , ticket.getPrice());
     }
 
     @Test

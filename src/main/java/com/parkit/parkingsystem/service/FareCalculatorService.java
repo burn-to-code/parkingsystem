@@ -15,8 +15,15 @@ public class FareCalculatorService {
         long durationMillis = outMillis - inMillis;
 
         //TODO: Some tests are failing here. Need to check if this logic is correct
-        double duration = durationMillis / (1000.0 * 60.0 * 60.0); //conversion en heure
-        double finalDuration = (duration < 0.5) ? 0.0 : duration;
+        double durationHours = durationMillis / (1_000.0 * 60.0 * 60.0); //conversion en heure
+
+        if(durationHours < 0.5){
+            ticket.setPrice(0);
+            return;
+        }
+
+        double fare;
+        double discountValue =  discount ? 0.95 : 1;
 
         switch (ticket.getParkingSpot().getParkingType()){
             case CAR: {
