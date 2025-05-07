@@ -137,7 +137,6 @@
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
-                        <phase>test</phase>
                     </execution>
                     <execution>
                         <id>jacoco-report</id>
