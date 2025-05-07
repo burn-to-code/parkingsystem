@@ -9,10 +9,8 @@ import com.parkit.parkingsystem.model.ParkingSpot;
 import com.parkit.parkingsystem.model.Ticket;
 import com.parkit.parkingsystem.service.ParkingService;
 import com.parkit.parkingsystem.util.InputReaderUtil;
-import org.apache.logging.log4j.core.Logger;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.platform.commons.logging.LoggerFactory;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -53,6 +51,14 @@ public class ParkingDataBaseIT {
         dataBasePrepareService.clearDataBaseEntries();
     }
 
+    public Ticket setIntimeTicketDao(long time) {
+        Ticket ticket = ticketDAO.getTicket("ABCDEF");
+        Date inTime = new Date(System.currentTimeMillis() - (time)); // 60 minutes de simulation
+        ticket.setInTime(inTime);
+        ticketDAO.saveTicket(ticket);
+        return ticket;
+    }
+
 
     @Test
     public void testParkingACar(){
@@ -61,10 +67,10 @@ public class ParkingDataBaseIT {
         parkingService.processIncomingVehicle();
 
         Ticket ticket = ticketDAO.getTicket("ABCDEF");
+        ParkingSpot updatedSpot = parkingSpotDAO.getParkingSpotById(ticket.getParkingSpot().getId());
         Assertions.assertNotNull(ticket, "Ticket should have been created in DB");
         assertEquals("ABCDEF", ticket.getVehicleRegNumber());
         Assertions.assertNotNull(ticket.getInTime(), "InTime should be set");
-        ParkingSpot updatedSpot = parkingSpotDAO.getParkingSpotById(ticket.getParkingSpot().getId());
         Assertions.assertFalse(updatedSpot.isAvailable(), "Parking spot should be marked as unavailable in DB");
         //TODO: check that a ticket is actualy saved in DB and Parking table is updated with availability
     }
@@ -76,10 +82,7 @@ public class ParkingDataBaseIT {
         testParkingACar();
 
         // SIMULER UNE ENTREE 60 MINUTES AVANT
-        Ticket ticket = ticketDAO.getTicket("ABCDEF");
-        Date inTime = new Date(System.currentTimeMillis() - (60*60*1000)); // 60 minutes de simulation
-        ticket.setInTime(inTime);
-        ticketDAO.saveTicket(ticket);
+        Ticket ticket = setIntimeTicketDao(60*60*1000);
 
         // SIMULER LA SORTIE
         ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
@@ -87,9 +90,11 @@ public class ParkingDataBaseIT {
 
         // TESTER SI L'HEURE DE SORTIE EST CORRECT, SI LE PRIX EST EXISTANT EN DATABASE ET SI LA PLACE DE PARKING EST LIBERER
         Ticket updateTicket = ticketDAO.getTicket("ABCDEF");
+        ParkingSpot updatedSpot = parkingSpotDAO.getParkingSpotById(ticket.getParkingSpot().getId()); // On va chercher directement dans la base de donnée pour être sur
+
+
         Assertions.assertNotNull(updateTicket.getOutTime(),"OutTime should be set");
         Assertions.assertTrue(updateTicket.getPrice() > 0, "Price should be set");
-        ParkingSpot updatedSpot = parkingSpotDAO.getParkingSpotById(ticket.getParkingSpot().getId()); // On va chercher directement dans la base de donnée pour être sur
         Assertions.assertTrue(updatedSpot.isAvailable(), "Parking spot should be marked as unavailable in DB");
 
         //TODO: check that the fare generated and out time are populated correctly in the database
@@ -101,9 +106,7 @@ public class ParkingDataBaseIT {
 
         parkingService.processIncomingVehicle();
 
-        Ticket ticket = ticketDAO.getTicket("ABCDEF");
-        ticket.setInTime(new Date(System.currentTimeMillis() - 60 * 60 * 1000));
-        ticketDAO.saveTicket(ticket);
+        setIntimeTicketDao(60*60*1000);
 
         parkingService.processExitingVehicle();
 
@@ -111,9 +114,7 @@ public class ParkingDataBaseIT {
 
         parkingService.processIncomingVehicle();
 
-        Ticket anotherTicket = ticketDAO.getTicket("ABCDEF");
-        anotherTicket.setInTime(new Date(System.currentTimeMillis() - 60 * 60 * 1000));
-        ticketDAO.saveTicket(anotherTicket);
+        setIntimeTicketDao(60*60*1000);
 
         parkingService.processExitingVehicle();
 
