@@ -23,8 +23,6 @@ public class FareCalculatorService {
         }
 
         double fare;
-        double discountValue =  discount ? 0.95 : 1;
-
         switch (ticket.getParkingSpot().getParkingType()){
             case CAR: {
                 fare = Fare.CAR_RATE_PER_HOUR;
@@ -37,7 +35,10 @@ public class FareCalculatorService {
             default: throw new IllegalArgumentException("Unknown Parking Type");
         }
 
-        ticket.setPrice(durationHours * fare * discountValue);
+        double discountValue =  discount ? 0.95 : 1;
+        double roundPrice = Math.round((durationHours * fare * discountValue) * 100.0) / 100.0;
+
+        ticket.setPrice(roundPrice);
     }
 
     public void calculateFare(Ticket ticket){
