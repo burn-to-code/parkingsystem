@@ -68,7 +68,7 @@ public class FareCalculatorServiceTest {
                 Arguments.of(20 , ParkingType.CAR , 0),
                 Arguments.of(29 , ParkingType.CAR , 0),
                 Arguments.of(30 , ParkingType.CAR , 0.75),
-                Arguments.of(45 , ParkingType.CAR , 1.125),
+                Arguments.of(45 , ParkingType.CAR , 1.13),
                 Arguments.of(60 , ParkingType.CAR , 1.5),
                 Arguments.of(120 , ParkingType.CAR , 3),
                 Arguments.of(1 , ParkingType.BIKE , 0),
@@ -131,7 +131,9 @@ public class FareCalculatorServiceTest {
 
         fareCalculatorService.calculateFare(ticket);
 
-        assertEquals( (0.75 * Fare.CAR_RATE_PER_HOUR) , ticket.getPrice());
+        double expectedResult = (double) Math.round((0.75 * Fare.CAR_RATE_PER_HOUR) * 100) / 100;
+
+        assertEquals( expectedResult , ticket.getPrice());
     }
 
     @Test
@@ -159,7 +161,8 @@ public class FareCalculatorServiceTest {
 
         fareCalculatorService.calculateFare(ticket, true);
 
-        assertEquals( (24 * Fare.CAR_RATE_PER_HOUR * 0.95) , ticket.getPrice());
+        double expectedResult = (double) Math.round((24 * Fare.CAR_RATE_PER_HOUR * 0.95) * 100) / 100;
+        assertEquals( expectedResult, ticket.getPrice());
     }
 
     @Test
@@ -168,7 +171,8 @@ public class FareCalculatorServiceTest {
 
         fareCalculatorService.calculateFare(ticket, true);
 
-        assertEquals( (24 * Fare.BIKE_RATE_PER_HOUR * 0.95) , ticket.getPrice());
+        double expectedResult = (double) Math.round((24 * Fare.BIKE_RATE_PER_HOUR * 0.95) * 100) / 100;
+        assertEquals( expectedResult , ticket.getPrice());
     }
 
 }
