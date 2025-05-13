@@ -36,7 +36,7 @@ public class FareCalculatorService {
         }
 
         double discountValue =  discount ? 0.95 : 1;
-        double roundPrice = Math.round((durationHours * fare * discountValue) * 100.0) / 100.0;
+        double roundPrice = round(durationHours * fare * discountValue);
 
         ticket.setPrice(roundPrice);
     }
