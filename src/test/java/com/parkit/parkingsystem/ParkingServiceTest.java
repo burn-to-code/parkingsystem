@@ -5,6 +5,7 @@ import com.parkit.parkingsystem.dao.ParkingSpotDAO;
 import com.parkit.parkingsystem.dao.TicketDAO;
 import com.parkit.parkingsystem.model.ParkingSpot;
 import com.parkit.parkingsystem.model.Ticket;
+import com.parkit.parkingsystem.service.FareCalculatorService;
 import com.parkit.parkingsystem.service.ParkingService;
 import com.parkit.parkingsystem.util.InputReaderUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,8 +29,8 @@ public class ParkingServiceTest {
 
     private static final String REG_NUMBER = "ABCDEF";
 
-    private static ParkingService parkingService;
-    private static Ticket ticket;
+    private ParkingService parkingService;
+    private Ticket ticket;
 
     @Mock
     private static InputReaderUtil inputReaderUtil;
@@ -54,8 +55,6 @@ public class ParkingServiceTest {
         try {
             ticket = createTestTicket();
 
-            lenient().when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
-
             parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
         } catch (Exception e) {
             e.printStackTrace();
@@ -76,8 +75,18 @@ public class ParkingServiceTest {
 
     public static Stream<Arguments> userTypes() {
         return Stream.of(
-                Arguments.of(false),
-                Arguments.of(true)
+                Arguments.of(false, 1),
+                Arguments.of(false, 3),
+                Arguments.of(false, 5),
+                Arguments.of(false, 8),
+                Arguments.of(false, 10),
+                Arguments.of(false, 12),
+                Arguments.of(true, 1),
+                Arguments.of(true, 3),
+                Arguments.of(true, 5),
+                Arguments.of(true, 8),
+                Arguments.of(true, 10),
+                Arguments.of(true, 12)
         );
     }
 
@@ -106,8 +115,9 @@ public class ParkingServiceTest {
     @ParameterizedTest
     @MethodSource("provideVehicleTypeAndUserStatus")
     @DisplayName("Gérer l'entrée d'un véhicule selon le type et le statut utilisateur")
-    public void testProcessIncomingVehicle(int typeVehicle, boolean typeUser){
+    public void testProcessIncomingVehicle(int typeVehicle, boolean typeUser) throws Exception {
         // GIVEN
+        when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
         mockUpdateParkingAndGetNbTicket(typeUser);
         mockReadSelectionAndGetNextAvailableSlot_ThenReturnTypeVehicleAnd1(typeVehicle);
 
@@ -126,6 +136,7 @@ public class ParkingServiceTest {
     @DisplayName("Gérer la sortie d'un véhicule - exception si lecture de la plaque échoue")
     public void testProcessIncomingVehicle_ShouldHandleException_WhenReadVehicleRegNumberFails(int typeVehicle) throws Exception {
         // GIVEN
+        when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
         mockReadSelectionAndGetNextAvailableSlot_ThenReturnTypeVehicleAnd1(typeVehicle);
         when(inputReaderUtil.readVehicleRegistrationNumber()).thenThrow(new RuntimeException("Simulated exception"));
 
@@ -143,18 +154,21 @@ public class ParkingServiceTest {
     @ParameterizedTest
     @MethodSource("userTypes")
     @DisplayName("Gérer la sortie d'un véhicule - situation normale")
-    public void testProcessExitingVehicle(boolean typeUser){
+    public void testProcessExitingVehicle(boolean typeUser, int hours) throws Exception {
         // GIVEN
+        when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
         mockUpdateParkingAndGetNbTicket(typeUser);
         when(ticketDAO.getTicket(anyString())).thenReturn(ticket);
         when(ticketDAO.updateTicket(any(Ticket.class))).thenReturn(true);
+        ticket.setInTime(new Date(System.currentTimeMillis() - ((long) hours * 60 * 60 * 1000)));
 
         // WHEN
         parkingService.processExitingVehicle();
 
         // THEN
-        assertNotNull(ticketDAO.getTicket(REG_NUMBER).getOutTime(), "l'heure de sortie de ne doit pas être null");
-        assertTrue(ticketDAO.getTicket(REG_NUMBER).getPrice() > 0., "le prix du ticket doit être sup à 0");
+        Ticket ticket1 = ticketDAO.getTicket(REG_NUMBER);
+        final double result = (ticket1.getOutTime().getTime()-ticket1.getInTime().getTime())/ (1_000.0 * 60.0 * 60.0);
+        assertEquals(ticket1.getPrice(), typeUser ? FareCalculatorService.round(1.5*result*0.95) : FareCalculatorService.round(1.5*result),  "Le prix du ticket en sortie doit correspondre");
         verify(parkingSpotDAO, Mockito.times(1)).updateParking(any(ParkingSpot.class));
         verify(ticketDAO, Mockito.times(1)).updateTicket(any(Ticket.class));
         verify(ticketDAO, Mockito.times(1)).getNbTickets(REG_NUMBER);
@@ -164,6 +178,7 @@ public class ParkingServiceTest {
     @DisplayName("processExitingVehicle : doit capturer une exception si la lecture de la plaque échoue")
     public void testProcessExitingVehicle_ShouldHandleException_WhenGetVehicleRegNumberFails() throws Exception {
         // GIVEN
+        when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
         when(inputReaderUtil.readVehicleRegistrationNumber()).thenThrow(new RuntimeException("Simulated Exception"));
 
         // WHEN
@@ -177,8 +192,9 @@ public class ParkingServiceTest {
 
     @Test
     @DisplayName("processExitingVehicle : cas d’échec de la mise à jour du ticket (updateTicket retourne false)")
-    public void processExitingVehicleTestUnableUpdate(){
+    public void processExitingVehicleTestUnableUpdate() throws Exception {
         // GIVEN
+        when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
         when(ticketDAO.getNbTickets(REG_NUMBER)).thenReturn(false);
         when(ticketDAO.getTicket(anyString())).thenReturn(ticket);
         when(ticketDAO.updateTicket(any(Ticket.class))).thenReturn(false);
