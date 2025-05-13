@@ -213,17 +213,20 @@ public class ParkingServiceTest {
 
     @ParameterizedTest
     @CsvSource({
-            "1, CAR",
-            "2, BIKE"
+            "1, CAR, 1",
+            "2, BIKE, 4"
     })
     @DisplayName("getNextParkingNumberIfAvailable : retourne une place valide selon le type de véhicule")
-    public void testGetNextParkingNumberIfAvailable(int number, ParkingType expectedType) {
+    public void testGetNextParkingNumberIfAvailable(int number, ParkingType expectedType, int placeNumber) {
+        // GIVEN
         when(inputReaderUtil.readSelection()).thenReturn(number);
-        when(parkingSpotDAO.getNextAvailableSlot(any(ParkingType.class))).thenReturn(1);
+        when(parkingSpotDAO.getNextAvailableSlot(any(ParkingType.class))).thenReturn(placeNumber);
 
+        // WHEN
         ParkingSpot parkingSpot = parkingService.getNextParkingNumberIfAvailable();
 
-        assertEquals(1, parkingSpot.getId(), "Le numéro de parking doit être 1");
+        //THEN
+        assertEquals(placeNumber, parkingSpot.getId(), "Le numéro de parking doit être 1");
         assertEquals(expectedType, parkingSpot.getParkingType(), "Le type de véhicule n'est pas correct");
         assertTrue(parkingSpot.isAvailable(), "Le parkingSpot doit être disponible");
     }
@@ -232,21 +235,27 @@ public class ParkingServiceTest {
     @ValueSource(ints = {1, 2})
     @DisplayName("getNextParkingNumberIfAvailable : retourne null si aucune place n'est disponible")
     public void testGetNextParkingNumberIfAvailableParkingNumberNotFound(int typeOfVehicle)  {
+        // GIVEN
         when(inputReaderUtil.readSelection()).thenReturn(typeOfVehicle);
         when(parkingSpotDAO.getNextAvailableSlot(any(ParkingType.class))).thenReturn(-1);
 
+        // WHEN
         ParkingSpot parkingSpot = parkingService.getNextParkingNumberIfAvailable();
 
+        // THEN
         assertNull(parkingSpot, "Le parkingSpot retourné doit être null");
     }
 
     @Test
     @DisplayName("getNextParkingNumberIfAvailable : retourne null si type de véhicule invalide")
     public void testGetNextParkingNumberIfAvailableParkingNumberWrongArgument()  {
+        //GIVEN
         when(inputReaderUtil.readSelection()).thenReturn(3);
 
+        //WHEN
         ParkingSpot parkingSpot = parkingService.getNextParkingNumberIfAvailable();
 
+        // THEN
         assertNull(parkingSpot, "Le parkingSpot retourné doit être null");
     }
 
