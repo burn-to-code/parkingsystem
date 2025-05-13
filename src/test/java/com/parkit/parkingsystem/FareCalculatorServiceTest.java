@@ -7,6 +7,7 @@ import com.parkit.parkingsystem.model.Ticket;
 import com.parkit.parkingsystem.service.FareCalculatorService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -35,6 +36,7 @@ public class FareCalculatorServiceTest {
     }
 
     // -----SETUP PERSONNALISE-----
+
     public void setUpTicketAndParkingSpot(long time, int number, ParkingType type, boolean available){
         Date inTime = new Date();
         inTime.setTime( System.currentTimeMillis() - (time) );
@@ -84,7 +86,10 @@ public class FareCalculatorServiceTest {
         );
     }
 
+    // ----- START TESTS -----
+
     @Test
+    @DisplayName("Should calculate fare correctly for a car parked for 1 hour")
     public void calculateFareCar(){
         setUpTicketAndParkingSpot(60*60*1000,1,ParkingType.CAR,false);
 
@@ -94,6 +99,7 @@ public class FareCalculatorServiceTest {
     }
 
     @Test
+    @DisplayName("Should calculate fare correctly for a bike parked for 1 hour")
     public void calculateFareBike(){
         setUpTicketAndParkingSpot(60*60*1000,1,ParkingType.BIKE,false);
 
@@ -103,13 +109,15 @@ public class FareCalculatorServiceTest {
     }
 
     @Test
-    public void calculateFareUnkownType(){
+    @DisplayName("Should throw NullPointerException for unknown parking type")
+    public void calculateFareUnknownType(){
         setUpTicketAndParkingSpot(60*60*1000,1,null,false);
 
         assertThrows(NullPointerException.class, () -> fareCalculatorService.calculateFare(ticket));
     }
 
     @Test
+    @DisplayName("Should throw IllegalArgumentException when parking time is in the future")
     public void calculateFareBikeWithFutureInTime(){
         setUpTicketAndParkingSpotInFuture(60*60*1000,1,ParkingType.BIKE,false);
 
@@ -117,6 +125,7 @@ public class FareCalculatorServiceTest {
     }
 
     @Test
+    @DisplayName("Should calculate fare for bike with less than one hour parking time")
     public void calculateFareBikeWithLessThanOneHourParkingTime(){
         setUpTicketAndParkingSpot(45*60*1000,1,ParkingType.BIKE,false);
 
@@ -126,6 +135,7 @@ public class FareCalculatorServiceTest {
     }
 
     @Test
+    @DisplayName("Should calculate fare for bike with less than one hour parking time")
     public void calculateFareCarWithLessThanOneHourParkingTime(){
         setUpTicketAndParkingSpot(45*60*1000,1,ParkingType.CAR,false);
 
@@ -137,6 +147,7 @@ public class FareCalculatorServiceTest {
     }
 
     @Test
+    @DisplayName("Should calculate fare for car with more than one day parking time")
     public void calculateFareCarWithMoreThanADayParkingTime(){
         setUpTicketAndParkingSpot(24*60*60*1000,1,ParkingType.CAR,false);
 
@@ -147,6 +158,7 @@ public class FareCalculatorServiceTest {
 
     @ParameterizedTest
     @MethodSource("calculateFareSource")
+    @DisplayName("Should calculate fare based on parking time and type")
     public void calculateFareParkingTime(int minutesParked,  ParkingType parkingType,  double expectedPrice){
         setUpTicketAndParkingSpot((long) minutesParked*60*1000,1,parkingType,false);
 
@@ -156,6 +168,7 @@ public class FareCalculatorServiceTest {
     }
 
     @Test
+    @DisplayName("Should calculate fare with discount for car parking")
     public void calculateFareCarWithDiscountDescription() {
         setUpTicketAndParkingSpot(24*60*60*1000,1,ParkingType.CAR,false);
 
@@ -166,6 +179,7 @@ public class FareCalculatorServiceTest {
     }
 
     @Test
+    @DisplayName("Should calculate fare with discount for bike parking")
     public void calculateFareBikeWithDiscountDescription() {
         setUpTicketAndParkingSpot(24*60*60*1000,1,ParkingType.BIKE,false);
 
