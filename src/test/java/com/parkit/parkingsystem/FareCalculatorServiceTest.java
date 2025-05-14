@@ -35,7 +35,7 @@ public class FareCalculatorServiceTest {
         ticket = new Ticket();
     }
 
-    // -----SETUP PERSONNALISE-----
+    // -----SETUP -----
 
     public void setUpTicketAndParkingSpot(long time, int number, ParkingType type, boolean available){
         Date inTime = new Date();
@@ -88,105 +88,161 @@ public class FareCalculatorServiceTest {
 
     // ----- START TESTS -----
 
+
+    // --- TESTS FOR CAR ---
+
+
+    @Test
+    @DisplayName("Should calculate fare for car with less than one hour parking time")
+    public void calculateFareCarWithLessThanOneHourParkingTime(){
+        // GIVEN
+        setUpTicketAndParkingSpot(45*60*1000,1,ParkingType.CAR,false);
+        final double expectedResult = (double) Math.round((0.75 * Fare.CAR_RATE_PER_HOUR) * 100) / 100;
+
+        // WHEN
+        fareCalculatorService.calculateFare(ticket);
+
+        // THEN
+        assertEquals( expectedResult , ticket.getPrice(), "Ticket car price is not correct for 45 minutes");
+    }
+
     @Test
     @DisplayName("Should calculate fare correctly for a car parked for 1 hour")
     public void calculateFareCar(){
+        // GIVEN
         setUpTicketAndParkingSpot(60*60*1000,1,ParkingType.CAR,false);
 
+        // WHEN
         fareCalculatorService.calculateFare(ticket);
 
-        assertEquals(Fare.CAR_RATE_PER_HOUR, ticket.getPrice());
-    }
-
-    @Test
-    @DisplayName("Should calculate fare correctly for a bike parked for 1 hour")
-    public void calculateFareBike(){
-        setUpTicketAndParkingSpot(60*60*1000,1,ParkingType.BIKE,false);
-
-        fareCalculatorService.calculateFare(ticket);
-
-        assertEquals(Fare.BIKE_RATE_PER_HOUR, ticket.getPrice());
-    }
-
-    @Test
-    @DisplayName("Should throw NullPointerException for unknown parking type")
-    public void calculateFareUnknownType(){
-        setUpTicketAndParkingSpot(60*60*1000,1,null,false);
-
-        assertThrows(NullPointerException.class, () -> fareCalculatorService.calculateFare(ticket));
-    }
-
-    @Test
-    @DisplayName("Should throw IllegalArgumentException when parking time is in the future")
-    public void calculateFareBikeWithFutureInTime(){
-        setUpTicketAndParkingSpotInFuture(60*60*1000,1,ParkingType.BIKE,false);
-
-        assertThrows(IllegalArgumentException.class, () -> fareCalculatorService.calculateFare(ticket));
-    }
-
-    @Test
-    @DisplayName("Should calculate fare for bike with less than one hour parking time")
-    public void calculateFareBikeWithLessThanOneHourParkingTime(){
-        setUpTicketAndParkingSpot(45*60*1000,1,ParkingType.BIKE,false);
-
-        fareCalculatorService.calculateFare(ticket);
-
-        assertEquals((0.75 * Fare.BIKE_RATE_PER_HOUR), ticket.getPrice() );
-    }
-
-    @Test
-    @DisplayName("Should calculate fare for bike with less than one hour parking time")
-    public void calculateFareCarWithLessThanOneHourParkingTime(){
-        setUpTicketAndParkingSpot(45*60*1000,1,ParkingType.CAR,false);
-
-        fareCalculatorService.calculateFare(ticket);
-
-        double expectedResult = (double) Math.round((0.75 * Fare.CAR_RATE_PER_HOUR) * 100) / 100;
-
-        assertEquals( expectedResult , ticket.getPrice());
+        // THEN
+        assertEquals(Fare.CAR_RATE_PER_HOUR, ticket.getPrice(), "Ticket car price is not correct for one hour");
     }
 
     @Test
     @DisplayName("Should calculate fare for car with more than one day parking time")
     public void calculateFareCarWithMoreThanADayParkingTime(){
+        // GIVEN
         setUpTicketAndParkingSpot(24*60*60*1000,1,ParkingType.CAR,false);
 
+        // WHEN
         fareCalculatorService.calculateFare(ticket);
 
-        assertEquals( (24 * Fare.CAR_RATE_PER_HOUR) , ticket.getPrice());
-    }
-
-    @ParameterizedTest
-    @MethodSource("calculateFareSource")
-    @DisplayName("Should calculate fare based on parking time and type")
-    public void calculateFareParkingTime(int minutesParked,  ParkingType parkingType,  double expectedPrice){
-        setUpTicketAndParkingSpot((long) minutesParked*60*1000,1,parkingType,false);
-
-        fareCalculatorService.calculateFare(ticket);
-
-        assertEquals( expectedPrice , ticket.getPrice());
+        // THEN
+        assertEquals( (24 * Fare.CAR_RATE_PER_HOUR) , ticket.getPrice(), "Ticket car price is not correct for 24 hours");
     }
 
     @Test
     @DisplayName("Should calculate fare with discount for car parking")
     public void calculateFareCarWithDiscountDescription() {
+        // GIVEN
         setUpTicketAndParkingSpot(24*60*60*1000,1,ParkingType.CAR,false);
 
+        final double expectedResult = FareCalculatorService.round(24 * Fare.CAR_RATE_PER_HOUR * 0.95);
+        // WHEN
         fareCalculatorService.calculateFare(ticket, true);
 
-        double expectedResult = (double) Math.round((24 * Fare.CAR_RATE_PER_HOUR * 0.95) * 100) / 100;
-        assertEquals( expectedResult, ticket.getPrice());
+        // THEN
+        assertEquals( expectedResult, ticket.getPrice(),  "Ticket car price is not correct for 24 hours with a discount ticket");
+    }
+
+
+    // --- TESTS FOR BIKE ---
+
+
+    @Test
+    @DisplayName("Should calculate fare for bike with less than one hour parking time")
+    public void calculateFareBikeWithLessThanOneHourParkingTime(){
+        // GIVEN
+        setUpTicketAndParkingSpot(45*60*1000,4,ParkingType.BIKE,false);
+
+        // WHEN
+        fareCalculatorService.calculateFare(ticket);
+
+        // THEN
+        assertEquals((0.75 * Fare.BIKE_RATE_PER_HOUR), ticket.getPrice(), "Ticket bike price is not correct for 45 minutes");
+    }
+
+    @Test
+    @DisplayName("Should calculate fare correctly for a bike parked for 1 hour")
+    public void calculateFareBike(){
+        // GIVEN
+        setUpTicketAndParkingSpot(60*60*1000,4,ParkingType.BIKE,false);
+
+        // WHEN
+        fareCalculatorService.calculateFare(ticket);
+
+        // THEN
+        assertEquals(Fare.BIKE_RATE_PER_HOUR, ticket.getPrice(), "Ticket Bike price is not correct for one hour");
+    }
+
+    @Test
+    @DisplayName("Should calculate fare for bike with more than one day parking time")
+    public void calculateFareBikeWithMoreThanADayParkingTime(){
+        // GIVEN
+        setUpTicketAndParkingSpot(24*60*60*1000,4,ParkingType.BIKE,false);
+
+        // WHEN
+        fareCalculatorService.calculateFare(ticket);
+
+        // THEN
+        assertEquals( (24 * Fare.BIKE_RATE_PER_HOUR) , ticket.getPrice(), "Ticket bike price is not correct for 24 hours");
     }
 
     @Test
     @DisplayName("Should calculate fare with discount for bike parking")
     public void calculateFareBikeWithDiscountDescription() {
+        // GIVEN
         setUpTicketAndParkingSpot(24*60*60*1000,1,ParkingType.BIKE,false);
 
+        final double expectedResult = FareCalculatorService.round(24 * Fare.BIKE_RATE_PER_HOUR * 0.95);
+        // WHEN
         fareCalculatorService.calculateFare(ticket, true);
 
-        double expectedResult = (double) Math.round((24 * Fare.BIKE_RATE_PER_HOUR * 0.95) * 100) / 100;
-        assertEquals( expectedResult , ticket.getPrice());
+        // THEN
+        assertEquals( expectedResult , ticket.getPrice(),  "Ticket bike price is not correct for  24 hours with a discount ticket");
+    }
+
+
+    // --- TESTS FOR EXCEPTION ---
+
+
+    @Test
+    @DisplayName("Should throw NullPointerException for unknown parking type")
+    public void calculateFareUnknownType(){
+        // GIVEN
+        setUpTicketAndParkingSpot(60*60*1000,1,null,false);
+
+        // WHEN THEN
+        assertThrows(NullPointerException.class, () -> fareCalculatorService.calculateFare(ticket), "An NullPointerException should be thrown");
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when parking time is in the future")
+    public void calculateFareBikeWithFutureInTime(){
+        // GIVEN
+        setUpTicketAndParkingSpotInFuture(60*60*1000,4,ParkingType.BIKE,false);
+
+        // WHEN AND THEN
+        assertThrows(IllegalArgumentException.class, () -> fareCalculatorService.calculateFare(ticket), "An IllegalArgumentException should be thrown");
+    }
+
+
+    // --- MULTIPLE TESTS FOR ANY PARKING TYPE ---
+
+
+    @ParameterizedTest
+    @MethodSource("calculateFareSource")
+    @DisplayName("Should calculate fare based on parking time and type")
+    public void calculateFareParkingTime(int minutesParked,  ParkingType parkingType,  double expectedPrice){
+        // GIVEN
+        setUpTicketAndParkingSpot((long) minutesParked*60*1000,1,parkingType,false);
+
+        // WHEN
+        fareCalculatorService.calculateFare(ticket);
+
+        // THEN
+        assertEquals( expectedPrice , ticket.getPrice(), "Ticket price is not correct for "+minutesParked+" minutes" );
     }
 
 }

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.*;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -62,7 +63,7 @@ public class ParkingServiceTest {
         }
     }
 
-    // ----- LISTE DE DONNEES -----
+    // ----- DATA SOURCES -----
 
     public static Stream<Arguments> provideVehicleTypeAndUserStatus() {
         return Stream.of(
@@ -90,14 +91,7 @@ public class ParkingServiceTest {
         );
     }
 
-    public static Stream<Arguments> vehicleTypes() {
-        return Stream.of(
-                Arguments.of(1),
-                Arguments.of(2)
-        );
-    }
-
-    // ----- METHODE MOCKER -----
+    // ----- METHOD MOCKED -----
 
     public void mockUpdateParkingAndGetNbTicket(boolean typeUser) {
         when(ticketDAO.getNbTickets(REG_NUMBER)).thenReturn(typeUser);
@@ -110,30 +104,46 @@ public class ParkingServiceTest {
     }
 
 
-    // ----- TEST ENTREE VEHICULE -----
+    // ----- INCOMING VEHICLE TESTS -----
 
     @ParameterizedTest
     @MethodSource("provideVehicleTypeAndUserStatus")
-    @DisplayName("Gérer l'entrée d'un véhicule selon le type et le statut utilisateur")
+    @DisplayName("Handle incoming vehicle according to type and user status")
     public void testProcessIncomingVehicle(int typeVehicle, boolean typeUser) throws Exception {
         // GIVEN
         when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
         mockUpdateParkingAndGetNbTicket(typeUser);
         mockReadSelectionAndGetNextAvailableSlot_ThenReturnTypeVehicleAnd1(typeVehicle);
 
+        // captor
+        ArgumentCaptor<ParkingSpot> parkingSpotCaptor = ArgumentCaptor.forClass(ParkingSpot.class);
+        ArgumentCaptor<Ticket> ticketCaptor = ArgumentCaptor.forClass(Ticket.class);
+
         // WHEN
         parkingService.processIncomingVehicle();
 
         // THEN
-        verify(parkingSpotDAO, times(1)).updateParking(any(ParkingSpot.class));
+        verify(parkingSpotDAO, times(1)).updateParking(parkingSpotCaptor.capture());
+        ParkingSpot updatedSpot = parkingSpotCaptor.getValue();
+        assertEquals(1, updatedSpot.getId(), "ParkingSpot ID should be 1");
+        assertFalse(updatedSpot.isAvailable(), "ParkingSpot should be marked as not available");
+
         verify(parkingSpotDAO, times(1)).getNextAvailableSlot(any(ParkingType.class));
-        verify(ticketDAO, times(1)).saveTicket(any(Ticket.class));
+        verify(ticketDAO, times(1)).saveTicket(ticketCaptor.capture());
+
+        Ticket savedTicket = ticketCaptor.getValue();
+        assertEquals("ABCDEF", savedTicket.getVehicleRegNumber(), "Vehicle registration number should match input");
+        assertEquals(1, savedTicket.getParkingSpot().getId(), "Saved ticket should reference ParkingSpot with ID 1");
+        assertNotNull(savedTicket.getInTime(), "Ticket inTime should not be null");
+        assertNull(savedTicket.getOutTime(), "Ticket outTime should be null for incoming vehicle");
+        assertEquals(0, savedTicket.getPrice(), "Price should be zero for incoming vehicle");
+
         verify(ticketDAO, times(1)).getNbTickets(REG_NUMBER);
     }
 
     @ParameterizedTest
-    @MethodSource("vehicleTypes")
-    @DisplayName("Gérer la sortie d'un véhicule - exception si lecture de la plaque échoue")
+    @ValueSource(ints = {1, 2})
+    @DisplayName("Handle vehicle entry - exception when reading license plate fails")
     public void testProcessIncomingVehicle_ShouldHandleException_WhenReadVehicleRegNumberFails(int typeVehicle) throws Exception {
         // GIVEN
         when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
@@ -149,11 +159,11 @@ public class ParkingServiceTest {
     }
 
 
-    // ----- TEST SORTIE VEHICULE ------
+    // ----- EXITING VEHICLE TESTS ------
 
     @ParameterizedTest
     @MethodSource("userTypes")
-    @DisplayName("Gérer la sortie d'un véhicule - situation normale")
+    @DisplayName("Handle vehicle exit - normal case")
     public void testProcessExitingVehicle(boolean typeUser, int hours) throws Exception {
         // GIVEN
         when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
@@ -161,21 +171,28 @@ public class ParkingServiceTest {
         when(ticketDAO.getTicket(anyString())).thenReturn(ticket);
         when(ticketDAO.updateTicket(any(Ticket.class))).thenReturn(true);
         ticket.setInTime(new Date(System.currentTimeMillis() - ((long) hours * 60 * 60 * 1000)));
+        ArgumentCaptor<Ticket> ticketCaptor = ArgumentCaptor.forClass(Ticket.class);
 
         // WHEN
         parkingService.processExitingVehicle();
 
         // THEN
-        Ticket ticket1 = ticketDAO.getTicket(REG_NUMBER);
+        verify(ticketDAO, times(1)).updateTicket(ticketCaptor.capture());
+        Ticket ticket1 = ticketCaptor.getValue();
         final double result = (ticket1.getOutTime().getTime()-ticket1.getInTime().getTime())/ (1_000.0 * 60.0 * 60.0);
-        assertEquals(ticket1.getPrice(), typeUser ? FareCalculatorService.round(1.5*result*0.95) : FareCalculatorService.round(1.5*result),  "Le prix du ticket en sortie doit correspondre");
-        verify(parkingSpotDAO, Mockito.times(1)).updateParking(any(ParkingSpot.class));
-        verify(ticketDAO, Mockito.times(1)).updateTicket(any(Ticket.class));
-        verify(ticketDAO, Mockito.times(1)).getNbTickets(REG_NUMBER);
+        final double expectedPrice = typeUser
+                ? FareCalculatorService.round(1.5 * result * 0.95)
+                : FareCalculatorService.round(1.5 * result);
+
+        assertEquals(expectedPrice, ticket1.getPrice(), "The calculated ticket price must match expected value");
+        assertTrue(ticket1.getParkingSpot().isAvailable(), "Parking spot should be available after vehicle exits");
+        verify(parkingSpotDAO, times(1)).updateParking(any(ParkingSpot.class));
+        verify(ticketDAO, times(1)).updateTicket(any(Ticket.class));
+        verify(ticketDAO, times(1)).getNbTickets(REG_NUMBER);
     }
 
     @Test
-    @DisplayName("processExitingVehicle : doit capturer une exception si la lecture de la plaque échoue")
+    @DisplayName("processExitingVehicle: should catch exception if license plate reading fails")
     public void testProcessExitingVehicle_ShouldHandleException_WhenGetVehicleRegNumberFails() throws Exception {
         // GIVEN
         when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
@@ -191,7 +208,7 @@ public class ParkingServiceTest {
     }
 
     @Test
-    @DisplayName("processExitingVehicle : cas d’échec de la mise à jour du ticket (updateTicket retourne false)")
+    @DisplayName("processExitingVehicle: fail when ticket update fails (updateTicket returns false)")
     public void processExitingVehicleTestUnableUpdate() throws Exception {
         // GIVEN
         when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
@@ -209,14 +226,14 @@ public class ParkingServiceTest {
     }
 
 
-    // ----- TESTS POUR CHOIX DE PLACE DISPONIBLE -----
+    // ----- PARKING SLOT SELECTION TESTS -----
 
     @ParameterizedTest
     @CsvSource({
             "1, CAR, 1",
             "2, BIKE, 4"
     })
-    @DisplayName("getNextParkingNumberIfAvailable : retourne une place valide selon le type de véhicule")
+    @DisplayName("getNextParkingNumberIfAvailable: should return a valid slot based on vehicle type")
     public void testGetNextParkingNumberIfAvailable(int number, ParkingType expectedType, int placeNumber) {
         // GIVEN
         when(inputReaderUtil.readSelection()).thenReturn(number);
@@ -226,14 +243,14 @@ public class ParkingServiceTest {
         ParkingSpot parkingSpot = parkingService.getNextParkingNumberIfAvailable();
 
         //THEN
-        assertEquals(placeNumber, parkingSpot.getId(), "Le numéro de parking doit être 1");
-        assertEquals(expectedType, parkingSpot.getParkingType(), "Le type de véhicule n'est pas correct");
-        assertTrue(parkingSpot.isAvailable(), "Le parkingSpot doit être disponible");
+        assertEquals(placeNumber, parkingSpot.getId(), "Parking spot ID should match");
+        assertEquals(expectedType, parkingSpot.getParkingType(), "Vehicle type is incorrect");
+        assertTrue(parkingSpot.isAvailable(), "Parking spot should be available");
     }
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2})
-    @DisplayName("getNextParkingNumberIfAvailable : retourne null si aucune place n'est disponible")
+    @DisplayName("getNextParkingNumberIfAvailable: should return null if no slot is available")
     public void testGetNextParkingNumberIfAvailableParkingNumberNotFound(int typeOfVehicle)  {
         // GIVEN
         when(inputReaderUtil.readSelection()).thenReturn(typeOfVehicle);
@@ -243,11 +260,11 @@ public class ParkingServiceTest {
         ParkingSpot parkingSpot = parkingService.getNextParkingNumberIfAvailable();
 
         // THEN
-        assertNull(parkingSpot, "Le parkingSpot retourné doit être null");
+        assertNull(parkingSpot, "Returned parkingSpot should be null");
     }
 
     @Test
-    @DisplayName("getNextParkingNumberIfAvailable : retourne null si type de véhicule invalide")
+    @DisplayName("getNextParkingNumberIfAvailable: should return null if vehicle type is invalid")
     public void testGetNextParkingNumberIfAvailableParkingNumberWrongArgument()  {
         //GIVEN
         when(inputReaderUtil.readSelection()).thenReturn(3);
@@ -256,7 +273,7 @@ public class ParkingServiceTest {
         ParkingSpot parkingSpot = parkingService.getNextParkingNumberIfAvailable();
 
         // THEN
-        assertNull(parkingSpot, "Le parkingSpot retourné doit être null");
+        assertNull(parkingSpot, "Returned parkingSpot should be null");
     }
 
 }

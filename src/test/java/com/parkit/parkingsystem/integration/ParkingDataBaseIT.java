@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("Tests d'intégration sur la gestion du parking")
+@DisplayName("Integration Tests on Parking Management")
 public class ParkingDataBaseIT {
 
     private static final String REG_NUMBER = "ABCDEF";
@@ -90,7 +90,7 @@ public class ParkingDataBaseIT {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2})
-    @DisplayName("Enregistrer un véhicule entrant et vérifier son ticket et la disponibilité du spot")
+    @DisplayName("Register an incoming vehicle and verify its ticket and parking spot availability")
     public void testParkingComing(int choice){
         // GIVEN
         final ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
@@ -103,16 +103,16 @@ public class ParkingDataBaseIT {
         final Ticket ticket = ticketDAO.getTicket(REG_NUMBER);
         ParkingSpot updatedSpot = ticket.getParkingSpot();
 
-        assertNotNull(ticket, "Une ticket doit être enregistré en base de donnée !");
+        assertNotNull(ticket, "A ticket must be recorded in the database!");
         assertEquals(REG_NUMBER, ticket.getVehicleRegNumber());
-        assertNotNull(ticket.getInTime(), "Un temps d'entrée doit être stipulé !");
-        Assertions.assertFalse(updatedSpot.isAvailable(), "le parking spot du ticket en data doit être occupé !");
+        assertNotNull(ticket.getInTime(), "An entry time must be specified!");
+        Assertions.assertFalse(updatedSpot.isAvailable(), "The parking spot in the ticket must be occupied!");
     }
 
 
-    @ParameterizedTest(name = "Vérification du tarif pour une durée de stationnement de {0}h")
+    @ParameterizedTest(name = "Check fare for a parking duration of {0}h")
     @MethodSource("calculateFareSource")
-    @DisplayName("Calcul du tarif de sortie selon la durée de stationnement")
+    @DisplayName("Calculate exit fare based on parking duration")
     public void testParkingLotExit(int hours, ParkingType parkingType, double fare, int place) {
 
         //GIVEN
@@ -122,7 +122,7 @@ public class ParkingDataBaseIT {
         ParkingSpot parkingSpot = new ParkingSpot(place, parkingType, false);
         ticket.setParkingSpot(parkingSpot);
         ticket.setVehicleRegNumber(REG_NUMBER);
-        Date inTime = new Date(System.currentTimeMillis() - ((long) hours * ONE_HOURS_IN_MILLIS)); // 60 minutes de simulation
+        Date inTime = new Date(System.currentTimeMillis() - ((long) hours * ONE_HOURS_IN_MILLIS));
         ticket.setInTime(inTime);
         ticketDAO.saveTicket(ticket);
 
@@ -138,11 +138,11 @@ public class ParkingDataBaseIT {
         assertEquals(expectedResult,updateTicket.getPrice(), "Price should be set");
     }
 
-    @ParameterizedTest(name = "Vérification du tarif pour utilisateur récurrent après {0}h de stationnement")
+    @ParameterizedTest(name = "Check fare for recurring user after {0}h of parking")
     @MethodSource("calculateFareSource")
-    @DisplayName("Réduction pour utilisateur récurrent")
-    public void parkingLotExitRecurringUserTest(int hours, ParkingType parkingType, double fare, int place) throws InterruptedException {
-        // GIVEN
+    @DisplayName("Discount for recurring user")
+    public void parkingLotExitRecurringUserTest(int hours, ParkingType parkingType, double fare, int place) {
+        // GIVEN (first visit)
         final ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
         final long now = System.currentTimeMillis();
         final double expectedFare;
@@ -164,7 +164,7 @@ public class ParkingDataBaseIT {
         // THEN
         Assertions.assertTrue(ticketDAO.getNbTickets(REG_NUMBER));
 
-        // GIVEN
+        // GIVEN (second visit)
         Ticket newTicket = new Ticket();
         newTicket.setParkingSpot(parkingSpot);
         newTicket.setVehicleRegNumber(REG_NUMBER);

@@ -17,7 +17,6 @@ public class FareCalculatorService {
         long outMillis = ticket.getOutTime().getTime();
         long durationMillis = outMillis - inMillis;
 
-        //TODO: Some tests are failing here. Need to check if this logic is correct
         double durationHours = durationMillis / (1_000.0 * 60.0 * 60.0); //conversion en heure
 
         if(durationHours < 0.5){
