@@ -41,7 +41,7 @@ public class ParkingDataBaseIT {
     // ----- SETUP -----
 
     @Mock
-    private static InputReaderUtil inputReaderUtil;
+    private InputReaderUtil inputReaderUtil;
 
     @BeforeAll
     public static void setUp() {
@@ -65,6 +65,7 @@ public class ParkingDataBaseIT {
 
     static Stream<Arguments> calculateFareSource(){
         return Stream.of(
+                Arguments.of(0.2 , ParkingType.CAR , Fare.CAR_RATE_PER_HOUR, 1),
                 Arguments.of(1 , ParkingType.CAR , Fare.CAR_RATE_PER_HOUR, 1),
                 Arguments.of(2 , ParkingType.CAR , Fare.CAR_RATE_PER_HOUR, 1),
                 Arguments.of(3 , ParkingType.CAR , Fare.CAR_RATE_PER_HOUR, 1),
@@ -106,6 +107,7 @@ public class ParkingDataBaseIT {
         assertNotNull(ticket, "A ticket must be recorded in the database!");
         assertEquals(REG_NUMBER, ticket.getVehicleRegNumber());
         assertNotNull(ticket.getInTime(), "An entry time must be specified!");
+        assertEquals(0, ticket.getPrice(), "The price of the ticket must be zero");
         Assertions.assertFalse(updatedSpot.isAvailable(), "The parking spot in the ticket must be occupied!");
     }
 
@@ -113,16 +115,17 @@ public class ParkingDataBaseIT {
     @ParameterizedTest(name = "Check fare for a parking duration of {0}h")
     @MethodSource("calculateFareSource")
     @DisplayName("Calculate exit fare based on parking duration")
-    public void testParkingLotExit(int hours, ParkingType parkingType, double fare, int place) {
+    public void testParkingLotExit(double hours, ParkingType parkingType, double fare, int place) {
 
         //GIVEN
         final ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
+        final double expectedResult;
 
         Ticket ticket = new Ticket();
         ParkingSpot parkingSpot = new ParkingSpot(place, parkingType, false);
         ticket.setParkingSpot(parkingSpot);
         ticket.setVehicleRegNumber(REG_NUMBER);
-        Date inTime = new Date(System.currentTimeMillis() - ((long) hours * ONE_HOURS_IN_MILLIS));
+        Date inTime = new Date((long) (System.currentTimeMillis() - (hours * ONE_HOURS_IN_MILLIS)));
         ticket.setInTime(inTime);
         ticketDAO.saveTicket(ticket);
 
@@ -132,7 +135,11 @@ public class ParkingDataBaseIT {
         // THEN
         Ticket updateTicket = ticketDAO.getTicket(REG_NUMBER);
         final double resultTime = calculateDurationInHours(updateTicket);
-        final double expectedResult = Math.round((resultTime * fare) * 100.0) / 100.0;
+        if (resultTime < 0.5) {
+            expectedResult = 0;
+        } else {
+            expectedResult = Math.round((resultTime * fare) * 100.0) / 100.0;
+        }
 
         assertNotNull(updateTicket.getOutTime(),"OutTime should be set");
         assertEquals(expectedResult,updateTicket.getPrice(), "Price should be set");
@@ -141,7 +148,7 @@ public class ParkingDataBaseIT {
     @ParameterizedTest(name = "Check fare for recurring user after {0}h of parking")
     @MethodSource("calculateFareSource")
     @DisplayName("Discount for recurring user")
-    public void parkingLotExitRecurringUserTest(int hours, ParkingType parkingType, double fare, int place) {
+    public void parkingLotExitRecurringUserTest(double hours, ParkingType parkingType, double fare, int place) {
         // GIVEN (first visit)
         final ParkingService parkingService = new ParkingService(inputReaderUtil, parkingSpotDAO, ticketDAO);
         final long now = System.currentTimeMillis();
@@ -168,7 +175,7 @@ public class ParkingDataBaseIT {
         Ticket newTicket = new Ticket();
         newTicket.setParkingSpot(parkingSpot);
         newTicket.setVehicleRegNumber(REG_NUMBER);
-        Date newInTime = new Date(now - ((long) hours *ONE_HOURS_IN_MILLIS));
+        Date newInTime = new Date((long) (now - (hours * ONE_HOURS_IN_MILLIS)));
         newTicket.setInTime(newInTime);
         ticketDAO.saveTicket(newTicket);
 
@@ -178,7 +185,11 @@ public class ParkingDataBaseIT {
         // THEN
         Ticket verifiedTicket = ticketDAO.getTicket(REG_NUMBER);
         double resultTime = calculateDurationInHours(verifiedTicket);
-        expectedFare = FareCalculatorService.round(resultTime * fare * 0.95 );
+        if (resultTime < 0.5) {
+            expectedFare = 0;
+        } else {
+            expectedFare = FareCalculatorService.round(resultTime * fare * 0.95 );
+        }
 
         assertEquals(expectedFare, verifiedTicket.getPrice(), 0.011);
     }
