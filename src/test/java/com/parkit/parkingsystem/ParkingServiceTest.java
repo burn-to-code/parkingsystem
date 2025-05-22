@@ -76,18 +76,30 @@ public class ParkingServiceTest {
 
     public static Stream<Arguments> userTypes() {
         return Stream.of(
-                Arguments.of(false, 1),
-                Arguments.of(false, 3),
-                Arguments.of(false, 5),
-                Arguments.of(false, 8),
-                Arguments.of(false, 10),
-                Arguments.of(false, 12),
-                Arguments.of(true, 1),
-                Arguments.of(true, 3),
-                Arguments.of(true, 5),
-                Arguments.of(true, 8),
-                Arguments.of(true, 10),
-                Arguments.of(true, 12)
+                Arguments.of(false, 1, ParkingType.CAR),
+                Arguments.of(false, 3, ParkingType.CAR),
+                Arguments.of(false, 5, ParkingType.CAR),
+                Arguments.of(false, 8, ParkingType.CAR),
+                Arguments.of(false, 10, ParkingType.CAR),
+                Arguments.of(false, 12, ParkingType.CAR),
+                Arguments.of(true, 1, ParkingType.CAR),
+                Arguments.of(true, 3, ParkingType.CAR),
+                Arguments.of(true, 5, ParkingType.CAR),
+                Arguments.of(true, 8, ParkingType.CAR),
+                Arguments.of(true, 10, ParkingType.CAR),
+                Arguments.of(true, 12, ParkingType.CAR),
+                Arguments.of(false, 1, ParkingType.BIKE),
+                Arguments.of(false, 3, ParkingType.BIKE),
+                Arguments.of(false, 5, ParkingType.BIKE),
+                Arguments.of(false, 8, ParkingType.BIKE),
+                Arguments.of(false, 10, ParkingType.BIKE),
+                Arguments.of(false, 12, ParkingType.BIKE),
+                Arguments.of(true, 1, ParkingType.BIKE),
+                Arguments.of(true, 3, ParkingType.BIKE),
+                Arguments.of(true, 5, ParkingType.BIKE),
+                Arguments.of(true, 8, ParkingType.BIKE),
+                Arguments.of(true, 10, ParkingType.BIKE),
+                Arguments.of(true, 12, ParkingType.BIKE)
         );
     }
 
@@ -124,21 +136,22 @@ public class ParkingServiceTest {
 
         // THEN
         verify(parkingSpotDAO, times(1)).updateParking(parkingSpotCaptor.capture());
-        ParkingSpot updatedSpot = parkingSpotCaptor.getValue();
-        assertEquals(1, updatedSpot.getId(), "ParkingSpot ID should be 1");
-        assertFalse(updatedSpot.isAvailable(), "ParkingSpot should be marked as not available");
-
         verify(parkingSpotDAO, times(1)).getNextAvailableSlot(any(ParkingType.class));
         verify(ticketDAO, times(1)).saveTicket(ticketCaptor.capture());
+        verify(ticketDAO, times(1)).getNbTickets(REG_NUMBER);
 
+        ParkingSpot updatedSpot = parkingSpotCaptor.getValue();
         Ticket savedTicket = ticketCaptor.getValue();
+
+        assertFalse(updatedSpot.isAvailable(), "ParkingSpot should be marked as not available");
+
         assertEquals("ABCDEF", savedTicket.getVehicleRegNumber(), "Vehicle registration number should match input");
         assertEquals(1, savedTicket.getParkingSpot().getId(), "Saved ticket should reference ParkingSpot with ID 1");
         assertNotNull(savedTicket.getInTime(), "Ticket inTime should not be null");
         assertNull(savedTicket.getOutTime(), "Ticket outTime should be null for incoming vehicle");
         assertEquals(0, savedTicket.getPrice(), "Price should be zero for incoming vehicle");
 
-        verify(ticketDAO, times(1)).getNbTickets(REG_NUMBER);
+
     }
 
     @ParameterizedTest
@@ -164,13 +177,19 @@ public class ParkingServiceTest {
     @ParameterizedTest
     @MethodSource("userTypes")
     @DisplayName("Handle vehicle exit - normal case")
-    public void testProcessExitingVehicle(boolean typeUser, int hours) throws Exception {
+    public void testProcessExitingVehicle(boolean typeUser, int hours, ParkingType parkingType) throws Exception {
         // GIVEN
+        final double expectedPrice;
+
         when(inputReaderUtil.readVehicleRegistrationNumber()).thenReturn(REG_NUMBER);
         mockUpdateParkingAndGetNbTicket(typeUser);
         when(ticketDAO.getTicket(anyString())).thenReturn(ticket);
         when(ticketDAO.updateTicket(any(Ticket.class))).thenReturn(true);
+
         ticket.setInTime(new Date(System.currentTimeMillis() - ((long) hours * 60 * 60 * 1000)));
+        ticket.setParkingSpot(new ParkingSpot(1, parkingType, false));
+
+        // Captor
         ArgumentCaptor<Ticket> ticketCaptor = ArgumentCaptor.forClass(Ticket.class);
 
         // WHEN
@@ -178,17 +197,32 @@ public class ParkingServiceTest {
 
         // THEN
         verify(ticketDAO, times(1)).updateTicket(ticketCaptor.capture());
+        verify(parkingSpotDAO, times(1)).updateParking(any(ParkingSpot.class));
+        verify(ticketDAO, times(1)).getNbTickets(REG_NUMBER);
+
         Ticket ticket1 = ticketCaptor.getValue();
         final double result = (ticket1.getOutTime().getTime()-ticket1.getInTime().getTime())/ (1_000.0 * 60.0 * 60.0);
-        final double expectedPrice = typeUser
-                ? FareCalculatorService.round(1.5 * result * 0.95)
-                : FareCalculatorService.round(1.5 * result);
+        expectedPrice = calculateFare(parkingType, typeUser,  result);
 
         assertEquals(expectedPrice, ticket1.getPrice(), "The calculated ticket price must match expected value");
         assertTrue(ticket1.getParkingSpot().isAvailable(), "Parking spot should be available after vehicle exits");
-        verify(parkingSpotDAO, times(1)).updateParking(any(ParkingSpot.class));
-        verify(ticketDAO, times(1)).updateTicket(any(Ticket.class));
-        verify(ticketDAO, times(1)).getNbTickets(REG_NUMBER);
+
+    }
+
+    // ---- HELPERS
+
+    public double calculateFare(ParkingType parkingType, boolean typeUser, double result) {
+        final double expectedPrice;
+        if (parkingType == ParkingType.CAR) {
+            expectedPrice = typeUser
+                    ? FareCalculatorService.round(1.5 * result * 0.95)
+                    : FareCalculatorService.round(1.5 * result);
+        } else {
+            expectedPrice = typeUser
+                    ? FareCalculatorService.round(1 * result * 0.95)
+                    : FareCalculatorService.round(1 * result);
+        }
+        return expectedPrice;
     }
 
     @Test
